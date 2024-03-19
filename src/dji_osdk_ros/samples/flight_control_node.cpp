@@ -41,6 +41,11 @@
 
 #include<dji_osdk_ros/SetJoystickMode.h>
 #include<dji_osdk_ros/JoystickAction.h>
+#include<stdio.h>
+#include<unistd.h>
+#include<cmath>
+#include<iostream>
+
 
 //CODE
 using namespace dji_osdk_ros;
@@ -54,6 +59,11 @@ bool moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesire
                      float yawThresholdInDeg = 1.0);
 
 void velocityAndYawRateCtrl(const JoystickCommand &offsetDesired, uint32_t timeMs);
+
+
+bool PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
+                     float posThresholdInM = 0.8,
+                     float yawThresholdInDeg = 1.0, float V_xy);
 
 int main(int argc, char** argv)
 {
@@ -302,6 +312,25 @@ int main(int argc, char** argv)
 
           velocityAndYawRateCtrl( {0, 0, 5.0, 0}, 2000);
           ROS_INFO_STREAM("Step 1 over!EmergencyBrake for 2s\n");
+
+	  //test  codes for posoffset and velocity and yawctrl
+	  // test content : keep yaw angle 0 all the time, keep the speed of 1 m/s, keep all probabilities !
+	  PosAndVelAndYawCtrl(control_task, {10, 10, 0.0, 0} ,0.8, 1, 1.3);
+          ROS_INFO_STREAM("test Step 1 move to the north east\n");
+
+
+	  PosAndVelAndYawCtrl(control_task, {-10, 10, 0.0, 0} ,0.8, 1, 1.3);
+          ROS_INFO_STREAM("test Step 2 move to the south east\n");
+
+          
+          PosAndVelAndYawCtrl(control_task, {-10, -10, 0.0, 0} ,0.8, 1, 1.3);
+          ROS_INFO_STREAM("test Step 3 move to the south west\n");
+
+          
+          PosAndVelAndYawCtrl(control_task, {10, -10, 0.0, 0} ,0.8, 1, 1.3);
+          ROS_INFO_STREAM("test Step 4 move to the north west\n");
+
+	  /*
           emergency_brake_client.call(emergency_brake);
           ros::Duration(2).sleep();
           velocityAndYawRateCtrl({-1.5, 2, 0, 0}, 2000);
@@ -316,7 +345,7 @@ int main(int argc, char** argv)
           ROS_INFO_STREAM("Step 4 over!EmergencyBrake for 2s\n");
           emergency_brake_client.call(emergency_brake);
           ros::Duration(2).sleep();
-
+	  */
           control_task.request.task = FlightTaskControl::Request::TASK_LAND;
           ROS_INFO_STREAM("Landing request sending ...");
           task_control_client.call(control_task);
@@ -356,6 +385,42 @@ bool moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesire
   task_control_client.call(task);
   return task.response.result;
 }
+
+
+bool PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
+                     float posThresholdInM = 0.8,
+                     float yawThresholdInDeg = 1.0, float V_xy);
+
+{
+
+  double M_PI = 3.14159265358979323846;
+  //const double rad_to_deg = 180.0 / M_PI;
+  // step 1: adjust the Yaw angle
+  moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesired, float posThresholdInM, float yawThresholdInDeg);
+
+  // step 2: calculat the angle between vector positive north and positive east
+
+  if (offsetDesired.x > 0)&&(offsetDesired.y > 0)
+    {theta = atan(offsetDesired.y / offsetDesired.x);}
+
+  if (offsetDesired.x < 0)&&(offsetDesired.y > 0)
+    {theta = M_PI / 2 + atan(offsetDesired.y / (-offsetDesired.x));}
+
+  if (offsetDesired.x < 0)&&(offsetDesired.y < 0)
+    {theta = M_PI + atan((-offsetDesired.y) / (-offsetDesired.x));}
+
+  if (offsetDesired.x > 0)&&(offsetDesired.y < 0)
+    {theta = M_PI * 3 / 2 + atan((-offsetDesired.y) / offsetDesired.x);}
+
+  // step 3: get the components of the V_xy and the movement time
+
+  uint32_t timeMs = (sqrt(pow(offsetDesired.y, 2) + pow(offsetDesired.x, 2)) / V_xy) * 1000
+  // execute the time and velocity
+  velocityAndYawRateCtrl({V_x * cos(theta), V_y * sin(theta), 0, 0}, timeMs);
+
+}
+
+
 
 void velocityAndYawRateCtrl(const JoystickCommand &offsetDesired, uint32_t timeMs)
 {
