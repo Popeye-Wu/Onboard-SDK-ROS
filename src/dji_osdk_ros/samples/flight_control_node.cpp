@@ -61,9 +61,9 @@ bool moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesire
 void velocityAndYawRateCtrl(const JoystickCommand &offsetDesired, uint32_t timeMs);
 
 
-bool PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
+void PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
                      float posThresholdInM = 0.8,
-                     float yawThresholdInDeg = 1.0, float V_xy);
+                     float yawThresholdInDeg = 1.0, float V_xy = 1.1);
 
 int main(int argc, char** argv)
 {
@@ -387,36 +387,40 @@ bool moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesire
 }
 
 
-bool PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
-                     float posThresholdInM = 0.8,
-                     float yawThresholdInDeg = 1.0, float V_xy);
+void PosAndVelAndYawCtrl(FlightTaskControl& task,const JoystickCommand &offsetDesired,
+                     float posThresholdInM,
+                     float yawThresholdInDeg, float V_xy)
 
 {
+  //const JoystickCommand &OffsetDesired;
+  uint32_t timeMs;
+  double MathPI = 3.14159265358979323846;
+  double theta = 0.0;
 
-  double M_PI = 3.14159265358979323846;
+  
   //const double rad_to_deg = 180.0 / M_PI;
   // step 1: adjust the Yaw angle
-  moveByPosOffset(FlightTaskControl& task,const JoystickCommand &offsetDesired, float posThresholdInM, float yawThresholdInDeg);
+  moveByPosOffset(task, offsetDesired, posThresholdInM, yawThresholdInDeg);
 
   // step 2: calculat the angle between vector positive north and positive east
 
-  if (offsetDesired.x > 0)&&(offsetDesired.y > 0)
+  if ((offsetDesired.x > 0)&&(offsetDesired.y > 0))
     {theta = atan(offsetDesired.y / offsetDesired.x);}
 
-  if (offsetDesired.x < 0)&&(offsetDesired.y > 0)
-    {theta = M_PI / 2 + atan(offsetDesired.y / (-offsetDesired.x));}
+  if ((offsetDesired.x < 0)&&(offsetDesired.y > 0))
+    {theta = MathPI / 2 + atan(offsetDesired.y / (-offsetDesired.x));}
 
-  if (offsetDesired.x < 0)&&(offsetDesired.y < 0)
-    {theta = M_PI + atan((-offsetDesired.y) / (-offsetDesired.x));}
+  if ((offsetDesired.x < 0)&&(offsetDesired.y < 0))
+    {theta = MathPI + atan((-offsetDesired.y) / (-offsetDesired.x));}
 
-  if (offsetDesired.x > 0)&&(offsetDesired.y < 0)
-    {theta = M_PI * 3 / 2 + atan((-offsetDesired.y) / offsetDesired.x);}
+  if ((offsetDesired.x > 0)&&(offsetDesired.y < 0))
+    {theta = MathPI * 3 / 2 + atan((-offsetDesired.y) / offsetDesired.x);}
 
   // step 3: get the components of the V_xy and the movement time
 
-  uint32_t timeMs = (sqrt(pow(offsetDesired.y, 2) + pow(offsetDesired.x, 2)) / V_xy) * 1000
+  timeMs = (sqrt(pow(offsetDesired.y, 2) + pow(offsetDesired.x, 2)) / V_xy) * 1000;
   // execute the time and velocity
-  velocityAndYawRateCtrl({V_x * cos(theta), V_y * sin(theta), 0, 0}, timeMs);
+  velocityAndYawRateCtrl({V_xy * cos(theta), V_xy * sin(theta), 0, 0}, timeMs);
 
 }
 
